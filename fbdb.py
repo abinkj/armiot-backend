@@ -1,10 +1,19 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
+import os
+import json
 
-cred = credentials.Certificate("serviceAccountKey.json")  
-firebase_admin.initialize_app(cred)
+# Read Firebase credentials from environment variable
+firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
 
-db = firestore.client()
+if firebase_credentials:
+    cred_dict = json.loads(firebase_credentials)  # Convert JSON string to dictionary
+    cred = credentials.Certificate(cred_dict)  # Load credentials from dict
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("✅ Firestore initialized successfully!")
+else:
+    raise ValueError("❌ Firebase credentials not found! Set the FIREBASE_CREDENTIALS environment variable.")
 
 def save_chat(user_input, api_response):
     db.collection("chats").add({
