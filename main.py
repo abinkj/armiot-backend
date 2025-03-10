@@ -11,7 +11,7 @@ import tempfile
 # Load environment variables
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+OPENAI_BASE_URL = "https://openrouter.ai/api/v1"
 ASSEMBLY_API_KEY = os.getenv("ASSEMBLY_API_KEY")
 
 # Create FastAPI app
