@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+openai
+requests
+assemblyai
+firebase-admin 
+pydantic
+python-multipart
