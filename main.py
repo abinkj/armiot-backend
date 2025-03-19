@@ -36,7 +36,7 @@ fbdb.ping_db()
 # Initialize OpenAI client
 client = openai.OpenAI(
     api_key=OPENAI_API_KEY,
-    base_url=OPENAI_BASE_URL
+    base_url="https://openrouter.ai/api/v1"
 )
 
 # Initialize AssemblyAI
