@@ -1,3 +1,4 @@
+from typing import List, Optional
 from fastapi import FastAPI, Query, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,8 +12,11 @@ import tempfile
 # Load environment variables
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE_URL = "https://openrouter.ai/api/v1"
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 ASSEMBLY_API_KEY = os.getenv("ASSEMBLY_API_KEY")
+GOOGLE_GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
+GOOGLE_GEMINI_FLASH_2_0 = os.getenv("GOOGLE_GEMINI_FLASH_2_0")
+# modal google/gemini-flash-1.5-8b-exp
 
 # Create FastAPI app
 app = FastAPI()
@@ -39,33 +43,72 @@ client = openai.OpenAI(
 aai.settings.api_key = ASSEMBLY_API_KEY
 transcriber = aai.Transcriber()
 
-# Define request body model
+
+# Request Model
 class ChatRequest(BaseModel):
     user_input: str
+    user_id: str
 
 @app.post("/chat")
-async def chat_response(chat_request: ChatRequest):
+async def chat_response(request: ChatRequest):
     try:
-        user_input = chat_request.user_input
+        user_input = request.user_input
+        user_id = request.user_id  
+
+        print(f"Processing request for user_id: {user_id}")
         
-        # Send the input to the Gemini API
-        completion = client.chat.completions.create(
-            model="google/gemini-flash-1.5-8b-exp",
-            messages=[{"role": "user", "content": [{"type": "text", "text": user_input}]}]
-        )
-
-        # Extract response
-        api_response = completion.choices[0].message.content
-        print("Chatbot Response:", api_response)
-
-        # Save chat to database
-        fbdb.save_chat(user_input, api_response)
-
+        try:
+            chat_history = fbdb.get_chat_history(user_id, limit=100)
+            print(f"Successfully retrieved chat history with {len(chat_history)} messages")
+        except Exception as e:
+            print(f"Error retrieving chat history: {str(e)}")
+            chat_history = []  # Fallback to empty history
+        
+        # Convert chat history to OpenAI format
+        try:
+            openai_messages = [
+                {"role": "assistant" if msg["role"] == "ai" else "user", "content": [{"type": "text", "text": msg["text"]}]}
+                for msg in chat_history
+            ]
+            print(f"Converted {len(openai_messages)} messages to OpenAI format")
+        except Exception as e:
+            print(f"Error converting chat history: {str(e)}")
+            openai_messages = []  # Fallback to empty messages
+        
+        # Add user message
+        openai_messages.append({
+            "role": "user",
+            "content": [{"type": "text", "text": user_input}]
+        })
+        
+        # Get AI response from OpenAI API
+        try:
+            print(f"Sending request to OpenAI with {len(openai_messages)} messages")
+            completion = client.chat.completions.create(
+                model="google/gemini-flash-1.5-8b-exp",
+                messages=openai_messages
+            )
+            api_response = completion.choices[0].message.content
+            print(f"Successfully received response from OpenAI")
+        except Exception as e:
+            print(f"Error calling OpenAI API: {str(e)}")
+            raise  # Re-raise to return error to client
+        
+        # Save chat to Firestore
+        try:
+            fbdb.save_chat(user_id, user_input, api_response)
+            print(f"Successfully saved chat to Firestore")
+        except Exception as e:
+            print(f"Error saving chat to Firestore: {str(e)}")
+            # Continue even if saving fails
+        
         return {"response": api_response}
-
+    
     except Exception as e:
-        print(f"Error in /chat endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        print("❌ ERROR in /chat endpoint:")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.post("/transcribe")
 async def transcribe_audio(audio_file: UploadFile = File(...)):
@@ -250,7 +293,6 @@ async def transcribe_audio(audio_file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
 
 
 
