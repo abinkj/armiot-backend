@@ -35,7 +35,7 @@ fbdb.ping_db()
 
 # Initialize OpenAI client
 client = openai.OpenAI(
-    api_key=OPENAI_API_KEY,
+    api_key=GOOGLE_GEMINI_API_KEY,
     base_url="https://openrouter.ai/api/v1"
 )
 
