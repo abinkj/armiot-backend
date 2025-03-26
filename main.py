@@ -85,7 +85,7 @@ async def chat_response(request: ChatRequest):
         try:
             print(f"Sending request to OpenAI with {len(openai_messages)} messages")
             completion = client.chat.completions.create(
-                model="google/gemini-flash-1.5-8b-exp",
+                model="google/gemini-2.5-pro-exp-03-25:free",
                 messages=openai_messages
             )
             api_response = completion.choices[0].message.content
